@@ -29,7 +29,6 @@ int abortRequested = 0;
 int create_socket = -1;
 int new_socket = -1;
 string dirname;
-string authenticatedUser;
 int loginAttempts = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -39,11 +38,12 @@ void signalHandler(int sig);
 void* s_threading(void* arg);
 int saveMessage(vector<string> msg);
 vector<string> listFiles(char* directory);
-void listMessages(int* current_socket);
-void readMessage(vector<string> msg, int* socket);
-void delMessage(vector<string> msg, int* socket);
+void listMessages(int* current_socket, string authenticatedUser);
+void readMessage(vector<string> msg, int* socket, string authenticatedUser);
+void delMessage(vector<string> msg, int* socket, string authenticatedUser);
 int authenticateUser(vector<string> msg);
 int ldapAuthentication(const char ldapBindPassword[], const char ldapUser[]);
+void blackListUser();
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -205,6 +205,7 @@ void* clientCommunication(void* data)
     char buffer[BUF];
     int size;
     int* current_socket = (int*)data;
+    string authenticatedUser;
 
     ////////////////////////////////////////////////////////////////////////////
     // SEND welcome message
@@ -281,8 +282,10 @@ void* clientCommunication(void* data)
             }else{
                 if(authenticateUser(msg) == EXIT_FAILURE)
                     sendMessage(current_socket, "ERR");
-                else
+                else{
+                    authenticatedUser = msg[1];
                     sendMessage(current_socket, "OK");
+                }
             }   
         }else{
             if(msg[0] =="SEND"){        //execute functions for each command
@@ -291,11 +294,11 @@ void* clientCommunication(void* data)
                 else
                     sendMessage(current_socket, "OK");
             }else if(msg[0] =="LIST"){
-                listMessages(current_socket);
+                listMessages(current_socket, authenticatedUser);
             }else if(msg[0] =="READ"){
-                readMessage(msg, current_socket);
+                readMessage(msg, current_socket, authenticatedUser);
             }else if(msg[0] =="DEL"){
-                delMessage(msg, current_socket);
+                delMessage(msg, current_socket, authenticatedUser);
             }else if(msg[0] =="QUIT"){
                 printf("Client closed connection\n");
             }else{
@@ -371,7 +374,7 @@ vector<string> listFiles(char* directory){
     return files;
 }
 
-void listMessages(int* socket){
+void listMessages(int* socket, string authenticatedUser){
     char dir[256] = "";
     strcat(dir, dirname.c_str());
     strcat(dir, "/");
@@ -391,7 +394,7 @@ void listMessages(int* socket){
     }
 }
 
-void readMessage(vector<string> msg, int* socket){
+void readMessage(vector<string> msg, int* socket, string authenticatedUser){
     char dir[256] = "";
     char response[500] = "";
     DIR *directory;
@@ -445,7 +448,7 @@ void readMessage(vector<string> msg, int* socket){
     }
 }
 
-void delMessage(vector<string> msg, int* socket){
+void delMessage(vector<string> msg, int* socket, string authenticatedUser){
     char dir[256] = "";
 
     char tempDir[256]= "";
@@ -515,7 +518,7 @@ void signalHandler(int sig)
 int authenticateUser(vector<string> msg){
     if(loginAttempts >= 3){
         printf("User gets blacklisted!");
-        //blackListUser(); //must be implemented
+        blackListUser();
         return -1;
     }
     loginAttempts++;
@@ -627,7 +630,9 @@ int ldapAuthentication(const char ldapBindPassword[], const char ldapUser[]){
         ldap_unbind_ext_s(ldapHandle, NULL, NULL);
         return EXIT_FAILURE;
     }
-
-    authenticatedUser = ldapUser;
     return EXIT_SUCCESS;
+}
+
+void blackListUser(){
+    //TODO
 }
