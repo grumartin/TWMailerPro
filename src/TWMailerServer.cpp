@@ -31,8 +31,8 @@ int abortRequested = 0;
 int create_socket = -1;
 int new_socket = -1;
 string dirname;
-int loginAttempts = 0;
- map<string, long> blackList;
+
+ map<string, time_t> blackList;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -46,8 +46,8 @@ void readMessage(vector<string> msg, int* socket, string authenticatedUser);
 void delMessage(vector<string> msg, int* socket, string authenticatedUser);
 int authenticateUser(vector<string> msg);
 int ldapAuthentication(const char ldapBindPassword[], const char ldapUser[]);
-void blackListUser();
-bool checkBlacklisted();
+void blackListUser(string clientIP);
+bool checkBlacklisted(string clientIP);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -211,6 +211,8 @@ void* clientCommunication(void* data)
     int size;
     int* current_socket = (int*)data;
     string authenticatedUser;
+    string clientIP;
+    int loginAttempts = 0;
 
     ////////////////////////////////////////////////////////////////////////////
     // SEND welcome message
@@ -220,6 +222,7 @@ void* clientCommunication(void* data)
 
     if(getpeername(*current_socket, (struct sockaddr*)&clientAddress, &len) == 0){
         printf("IP address is: %s\n", inet_ntoa(clientAddress.sin_addr));
+        clientIP=inet_ntoa(clientAddress.sin_addr);
     }
     strcpy(buffer, "Welcome to TWMailer!\r\nPlease enter one of the following commands:\r\n--> LOGIN \r\n--> SEND \r\n--> LIST \r\n--> READ (Type in the Subject instead of the Message-Number) \r\n--> DEL (Subject instead of Message-Number) \r\n--> QUIT \r\n");
     if (send(*current_socket, buffer, strlen(buffer), 0) == -1)
@@ -292,12 +295,18 @@ void* clientCommunication(void* data)
                 printf("Unauthorized! Login first.");
                 sendMessage(current_socket, "ERR");
             }else{
-                if(checkBlacklisted()){
+                if(checkBlacklisted(clientIP)){
                     sendMessage(current_socket, "Zu viele Anmeldungsversuche, in einer Minute erneut versuchen");
                 }
-                else if(authenticateUser(msg) == EXIT_FAILURE)
+                else if(authenticateUser(msg) == EXIT_FAILURE){
+                    loginAttempts++;
+                    if(loginAttempts>=3){
+                        blackListUser(clientIP);
+                    }
                     sendMessage(current_socket, "ERR");
+                }
                 else{
+                    loginAttempts=0;
                     authenticatedUser = msg[1];
                     sendMessage(current_socket, "OK");
                 }
@@ -531,12 +540,6 @@ void signalHandler(int sig)
 }
 
 int authenticateUser(vector<string> msg){
-    if(loginAttempts >= 3){
-        printf("User gets blacklisted!");
-        blackListUser();
-        return -1;
-    }
-    loginAttempts++;
 
     if(msg.size() < 3){
         printf("Missing information!");
@@ -648,13 +651,27 @@ int ldapAuthentication(const char ldapBindPassword[], const char ldapUser[]){
     return EXIT_SUCCESS;
 }
 
-void blackListUser(){
-    //TODO
+void blackListUser(string clientIP){
+    time_t ms = time(nullptr);
+    cout << ms << " seconds since the Epoch\n";
+    blackList.insert(pair<string, time_t>(clientIP, ms));
+    
 }
 
-bool checkBlacklisted(){
+bool checkBlacklisted(string clientIP){
 
+    auto it = blackList.find(clientIP);
+    if ( it == blackList.end() ) {  
+        return false;
+    } 
 
+    time_t timeStampBlacklist=it->second;
+
+    time_t ms = time(nullptr);
+
+    if(ms-timeStampBlacklist<60000){
+        return true;
+    }
 
     return false;
 }
