@@ -8,6 +8,7 @@
 #include <string.h>
 #include <iostream>
 #include <string>
+#include "mypw.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -94,6 +95,9 @@ int main(int argc, char **argv)
       printf(">> ");
       string input = "";
       string line = "";
+      char pw[256];
+
+      //memset(pw, 0, 100);
 
       getline(cin, line);  //get command
       
@@ -112,7 +116,9 @@ int main(int argc, char **argv)
          line += "\n";
          input += line;
          printf(">> ");
-         getline(cin, line);
+         strcpy(pw, getpass());
+         line=pw;
+         //getline(cin, line);
          line += "\n";
          input += line;
       }
