@@ -16,6 +16,8 @@
 #include <experimental/filesystem>
 #include <fstream> 
 #include <dirent.h>
+#include <iterator>
+#include <map>
 
 using namespace std;
 
@@ -30,6 +32,7 @@ int create_socket = -1;
 int new_socket = -1;
 string dirname;
 int loginAttempts = 0;
+ map<string, long> blackList;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -44,6 +47,7 @@ void delMessage(vector<string> msg, int* socket, string authenticatedUser);
 int authenticateUser(vector<string> msg);
 int ldapAuthentication(const char ldapBindPassword[], const char ldapUser[]);
 void blackListUser();
+bool checkBlacklisted();
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -185,6 +189,7 @@ int main(int argc, char** argv)
 void * s_threading(void* arg){      //create thread for each client
     cout << "A Client connected to the server!" << endl;
     int clientfd = *((int*)arg);
+
     pthread_detach(pthread_self());
 
     //client communication
@@ -209,6 +214,18 @@ void* clientCommunication(void* data)
 
     ////////////////////////////////////////////////////////////////////////////
     // SEND welcome message
+
+    struct sockaddr_in clientAddress;
+
+    if(getpeername((int*)data, (struct sockaddr *)&clientAddress, sizeof(clientAddress))==0){
+
+        long clientAdress = ntohl(clientAddress.sin_addr.s_addr);
+
+        cout << clientAdress<< endl;
+
+
+
+    }
     strcpy(buffer, "Welcome to TWMailer!\r\nPlease enter one of the following commands:\r\n--> LOGIN \r\n--> SEND \r\n--> LIST \r\n--> READ (Type in the Subject instead of the Message-Number) \r\n--> DEL (Subject instead of Message-Number) \r\n--> QUIT \r\n");
     if (send(*current_socket, buffer, strlen(buffer), 0) == -1)
     {
@@ -280,7 +297,10 @@ void* clientCommunication(void* data)
                 printf("Unauthorized! Login first.");
                 sendMessage(current_socket, "ERR");
             }else{
-                if(authenticateUser(msg) == EXIT_FAILURE)
+                if(checkBlacklisted()){
+                    sendMessage(current_socket, "Zu viele Anmeldungsversuche, in einer Minute erneut versuchen");
+                }
+                else if(authenticateUser(msg) == EXIT_FAILURE)
                     sendMessage(current_socket, "ERR");
                 else{
                     authenticatedUser = msg[1];
@@ -635,4 +655,11 @@ int ldapAuthentication(const char ldapBindPassword[], const char ldapUser[]){
 
 void blackListUser(){
     //TODO
+}
+
+bool checkBlacklisted(){
+
+
+
+    return false;
 }
