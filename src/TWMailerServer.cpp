@@ -216,15 +216,10 @@ void* clientCommunication(void* data)
     // SEND welcome message
 
     struct sockaddr_in clientAddress;
+    socklen_t len = sizeof(clientAddress);
 
-    if(getpeername((int*)data, (struct sockaddr *)&clientAddress, sizeof(clientAddress))==0){
-
-        long clientAdress = ntohl(clientAddress.sin_addr.s_addr);
-
-        cout << clientAdress<< endl;
-
-
-
+    if(getpeername(*current_socket, (struct sockaddr*)&clientAddress, &len) == 0){
+        printf("IP address is: %s\n", inet_ntoa(clientAddress.sin_addr));
     }
     strcpy(buffer, "Welcome to TWMailer!\r\nPlease enter one of the following commands:\r\n--> LOGIN \r\n--> SEND \r\n--> LIST \r\n--> READ (Type in the Subject instead of the Message-Number) \r\n--> DEL (Subject instead of Message-Number) \r\n--> QUIT \r\n");
     if (send(*current_socket, buffer, strlen(buffer), 0) == -1)
