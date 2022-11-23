@@ -652,14 +652,13 @@ int ldapAuthentication(const char ldapBindPassword[], const char ldapUser[]){
 }
 
 void blackListUser(string clientIP){
-    time_t ms = time(nullptr);
-    cout << ms << " seconds since the Epoch\n";
-    blackList.insert(pair<string, time_t>(clientIP, ms));
+    time_t currTime = time(nullptr);
+    cout << currTime << " seconds since the Epoch\n";
+    blackList.insert(pair<string, time_t>(clientIP, currTime));
     
 }
 
 bool checkBlacklisted(string clientIP){
-
     auto it = blackList.find(clientIP);
     if ( it == blackList.end() ) {  
         return false;
@@ -667,9 +666,9 @@ bool checkBlacklisted(string clientIP){
 
     time_t timeStampBlacklist=it->second;
 
-    time_t ms = time(nullptr);
+    time_t currentTime = time(nullptr);
 
-    if(ms-timeStampBlacklist<60000){
+    if(currentTime-timeStampBlacklist<60){
         return true;
     }
 
